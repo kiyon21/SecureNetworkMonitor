@@ -1,9 +1,5 @@
-# SecureNetworkMonitor
+# C++ SecureNetworkMonitor
 Monitors systems and networks to secure them against policy violations and attacks.
-
-# C++ Nework Monitor
-
-This is a basic Intrusion Detection System implemented in C++ that monitors network traffic, detects potential intrusions based on predefined rules, and generates alerts.
 
 ## Features
 
