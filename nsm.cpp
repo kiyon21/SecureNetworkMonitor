@@ -15,6 +15,7 @@
 #include <netinet/udp.h>
 #include <netinet/if_ether.h>
 #include <arpa/inet.h>
+#include <unordered_set>
 
 class Logger {
 private:
@@ -127,30 +128,48 @@ private:
     std::map<std::string, int> connection_count;
     std::map<std::string, std::time_t> last_connection;
     std::mutex analyzer_mutex;
-    
+    std::unordered_map<std::string, std::unordered_set<int>> port_map;  // Tracks unique ports accessed per IP
+    std::map<std::string, std::deque<std::time_t>> syn_count;  // Tracks SYN requests per second
+
 public:
-    bool isPortScan(const std::string& source_ip, const std::string& dest_ip, int dest_port) {
+    bool isPortScan(const std::string& source_ip, int dest_port) {
         std::lock_guard<std::mutex> lock(analyzer_mutex);
-        
-        std::string key = source_ip + "-" + dest_ip;
+
         auto now = std::time(nullptr);
-        
-        // Reset counter if last connection was more than 60 seconds ago
-        if (last_connection.find(key) != last_connection.end() && 
-            now - last_connection[key] > 60) {
-            connection_count[key] = 0;
+        std::string key = source_ip;
+
+        // Remove old entries (cleanup every 60 sec)
+        for (auto it = connection_count.begin(); it != connection_count.end(); ) {
+            if (now - last_connection[it->first] > 60) {
+                it = connection_count.erase(it);
+            } else {
+                ++it;
+            }
         }
-        
-        connection_count[key]++;
+
+        // Track unique ports
+        if (port_map[key].count(dest_port) == 0) {
+            port_map[key].insert(dest_port);
+            connection_count[key]++;
+        }
+
         last_connection[key] = now;
-        
-        // If more than 10 different ports accessed in 60 seconds, consider it a port scan
+
         return connection_count[key] > 10;
     }
     
     bool isSynFlood(const std::string& dest_ip, int threshold = 100) {
-        // TODO: this would track SYN packets and detect flooding
-        return false;
+        std::lock_guard<std::mutex> lock(analyzer_mutex);
+
+        auto now = std::time(nullptr);
+        syn_count[dest_ip].push_back(now);
+
+        // Remove old entries
+        while (!syn_count[dest_ip].empty() && now - syn_count[dest_ip].front() > 1) {
+            syn_count[dest_ip].pop_front();
+        }
+
+        return syn_count[dest_ip].size() > threshold;
     }
 };
 
@@ -252,7 +271,7 @@ private:
         }
         
         // Check for port scanning
-        if (analyzer.isPortScan(info.source_ip, info.dest_ip, info.dest_port)) {
+        if (analyzer.isPortScan(info.source_ip, info.dest_port)) {
             Alert alert("PORT_SCAN", info.source_ip, info.dest_ip, 
                        info.source_port, info.dest_port, info.protocol,
                        "Possible port scanning detected");
