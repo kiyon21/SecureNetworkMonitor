@@ -149,8 +149,7 @@ public:
     }
     
     bool isSynFlood(const std::string& dest_ip, int threshold = 100) {
-        // In a real implementation, this would track SYN packets and detect flooding
-        // This is a simplified placeholder
+        // TODO: this would track SYN packets and detect flooding
         return false;
     }
 };
@@ -285,7 +284,7 @@ private:
     
     void triggerAlert(const Alert& alert) {
         logger.log(Logger::ALERT, alert.toString());
-        // In a real system, you might send this alert to a SIEM or notify an admin
+        // TODO: notify an admin
     }
     
     void captureLoop() {
@@ -294,7 +293,7 @@ private:
     
 public:
     IntrusionDetectionSystem() : logger("ids_log.txt"), running(false), handle(nullptr) {
-        // Add some default rules
+        // Rules
         addRule(Rule(Rule::IP_BLACKLIST, "Blacklisted IP", "Traffic from known malicious IP"));
         addRule(Rule(Rule::PORT_SCAN, "Port Scan", "Multiple ports accessed in short time"));
         addRule(Rule(Rule::SYN_FLOOD, "SYN Flood", "High rate of SYN packets to same destination"));
